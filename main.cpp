@@ -6,7 +6,7 @@
 #include <string.h>
 #include <vector>
 
-#define BUFFER_ID 1
+#define BUF_ID 1
 
 // clang-format off
 unsigned char edid[] = {
@@ -30,12 +30,12 @@ struct DaemonContext {
     bool buf_registered = false;
 };
 
-static void grab_and_drain(DaemonContext* ctx) {
+static void grab_and_drain(DaemonContext* ctx, int buf_id) {
     do {
         evdi_rect rects[16];
         int n = 16;
         evdi_grab_pixels(ctx->handle, rects, &n);
-    } while (evdi_request_update(ctx->handle, BUFFER_ID));
+    } while (evdi_request_update(ctx->handle, buf_id));
 }
 
 static void mode_changed_handler(evdi_mode mode, void* data) {
@@ -43,15 +43,16 @@ static void mode_changed_handler(evdi_mode mode, void* data) {
 
     auto* ctx = (DaemonContext*) data;
 
+    if (ctx->buf_registered) {
+        evdi_unregister_buffer(ctx->handle, BUF_ID);
+        ctx->buf_registered = false;
+    }
+
     int stride = mode.width * (mode.bits_per_pixel / 8);
     ctx->buf_data.resize(stride * mode.height);
 
-    if (ctx->buf_registered) {
-        evdi_unregister_buffer(ctx->handle, BUFFER_ID);
-    }
-
     struct evdi_buffer buf = {
-        .id = BUFFER_ID,
+        .id = BUF_ID,
         .buffer = ctx->buf_data.data(),
         .width = mode.width,
         .height = mode.height,
@@ -60,13 +61,13 @@ static void mode_changed_handler(evdi_mode mode, void* data) {
     evdi_register_buffer(ctx->handle, buf);
     ctx->buf_registered = true;
 
-    if (evdi_request_update(ctx->handle, BUFFER_ID)) {
-        grab_and_drain(ctx);
+    if (evdi_request_update(ctx->handle, BUF_ID)) {
+        grab_and_drain(ctx, BUF_ID);
     }
 }
 
-static void update_ready_handler(int, void* data) {
-    grab_and_drain((DaemonContext*) data);
+static void update_ready_handler(int buf_id, void* data) {
+    grab_and_drain((DaemonContext*) data, buf_id);
 }
 
 static void link_providers() {

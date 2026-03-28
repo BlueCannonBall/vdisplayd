@@ -46,10 +46,9 @@ xrandr --output DVI-I-1-1 --off
 
 ## How it works
 
-EVDI creates a virtual DRM device with a fake connector. When X11 tries to display content on it (atomic commit), the kernel needs a userspace process to consume the pixels — otherwise the DRM `flip_done` fence times out and the display hangs for 10 seconds.
+EVDI creates a virtual DRM device with a fake connector. When X11 tries to display content on it (atomic commit), the kernel needs a userspace process to consume the pixels. Otherwise, the DRM `flip_done` fence times out and the display hangs for 10 seconds.
 
 This daemon:
 - Registers a framebuffer with the EVDI kernel module
 - Responds to `mode_changed` events by allocating a matching buffer
 - Calls `evdi_grab_pixels()` to signal frame completion to the kernel
-- Handles the `evdi_request_update()` return value correctly — when it returns `true`, pixels must be grabbed immediately without waiting for an `update_ready` event

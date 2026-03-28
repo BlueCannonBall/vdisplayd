@@ -93,6 +93,7 @@ int main() {
     DaemonContext ctx;
 
     if ((ctx.handle = evdi_open_attached_to_fixed(nullptr, 0)) == EVDI_INVALID_HANDLE) {
+        std::cerr << "Error: Could not open EVDI device" << std::endl;
         return 1;
     }
 
@@ -101,8 +102,7 @@ int main() {
     evdi_connect(ctx.handle, dummy_edid, sizeof(dummy_edid), 3840 * 2160);
 
     // Link the evdi provider to the primary GPU so X11 can render to it.
-    {
-        Display* dpy = XOpenDisplay(nullptr);
+    if (Display* dpy = XOpenDisplay(nullptr)) {
         Window root = DefaultRootWindow(dpy);
         XRRScreenResources* res = XRRGetScreenResources(dpy, root);
         XRRProviderResources* prov_res = XRRGetProviderResources(dpy, root);
@@ -127,6 +127,8 @@ int main() {
         XRRFreeProviderResources(prov_res);
         XRRFreeScreenResources(res);
         XCloseDisplay(dpy);
+    } else {
+        std::cerr << "Warning: Could not open X11 display, continuing anyway..." << std::endl;
     }
 
     struct evdi_event_context ev_ctx = {0};

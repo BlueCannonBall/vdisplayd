@@ -90,16 +90,6 @@ static void update_ready_handler(int buffer_to_be_updated, void* user_data) {
 }
 
 int main() {
-    DaemonContext ctx;
-
-    if ((ctx.handle = evdi_open_attached_to_fixed(nullptr, 0)) == EVDI_INVALID_HANDLE) {
-        return 1;
-    }
-
-    evdi_enable_cursor_events(ctx.handle, true);
-
-    evdi_connect(ctx.handle, dummy_edid, sizeof(dummy_edid), 3840 * 2160);
-
     // Link the evdi provider to the primary GPU so X11 can render to it.
     {
         Display* dpy = XOpenDisplay(nullptr);
@@ -128,6 +118,16 @@ int main() {
         XRRFreeScreenResources(res);
         XCloseDisplay(dpy);
     }
+
+    DaemonContext ctx;
+
+    if ((ctx.handle = evdi_open_attached_to_fixed(nullptr, 0)) == EVDI_INVALID_HANDLE) {
+        return 1;
+    }
+
+    evdi_enable_cursor_events(ctx.handle, true);
+
+    evdi_connect(ctx.handle, dummy_edid, sizeof(dummy_edid), 3840 * 2160);
 
     struct evdi_event_context ev_ctx = {0};
     ev_ctx.user_data = &ctx;

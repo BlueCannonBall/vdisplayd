@@ -25,12 +25,20 @@ struct DaemonContext {
     evdi_handle handle;
     std::vector<uint8_t> buf_data;
     bool buf_registered = false;
+
+    void grab_and_drain(int buf_id) {
+        do {
+            evdi_rect rects[16];
+            int rect_count = 16;
+            evdi_grab_pixels(handle, rects, &rect_count);
+        } while (evdi_request_update(handle, buf_id));
+    }
 };
 
-static void mode_changed_handler(evdi_mode mode, void* data) {
+static void handle_mode_change(evdi_mode mode, void* data) {
     std::cout << "Mode: " << mode.width << "x" << mode.height << " @ " << mode.refresh_rate << "Hz" << std::endl;
 
-    auto* ctx = (DaemonContext*) data;
+    auto ctx = (DaemonContext*) data;
 
     if (ctx->buf_registered) {
         evdi_unregister_buffer(ctx->handle, BUF_ID);
@@ -50,11 +58,14 @@ static void mode_changed_handler(evdi_mode mode, void* data) {
     evdi_register_buffer(ctx->handle, buf);
     ctx->buf_registered = true;
 
-    while (evdi_request_update(ctx->handle, BUF_ID)) {
-        evdi_rect rects[16];
-        int rect_count = 16;
-        evdi_grab_pixels(ctx->handle, rects, &rect_count);
+    if (evdi_request_update(ctx->handle, BUF_ID)) {
+        ctx->grab_and_drain(BUF_ID);
     }
+}
+
+static void handle_update_ready(int buf_id, void* data) {
+    auto ctx = (DaemonContext*) data;
+    ctx->grab_and_drain(buf_id);
 }
 
 int main() {
@@ -67,7 +78,8 @@ int main() {
     evdi_connect(ctx.handle, edid, sizeof(edid), 3840 * 2160);
 
     struct evdi_event_context event_ctx = {
-        .mode_changed_handler = mode_changed_handler,
+        .mode_changed_handler = handle_mode_change,
+        .update_ready_handler = handle_update_ready,
         .user_data = &ctx,
     };
     pollfd pfd = {.fd = evdi_get_event_ready(ctx.handle), .events = POLLIN};

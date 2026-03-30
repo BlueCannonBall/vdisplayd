@@ -1,9 +1,6 @@
-#include <X11/Xlib.h>
-#include <X11/extensions/Xrandr.h>
 #include <evdi_lib.h>
 #include <iostream>
 #include <poll.h>
-#include <string.h>
 #include <vector>
 
 #define BUF_ID 1
@@ -30,14 +27,6 @@ struct DaemonContext {
     bool buf_registered = false;
 };
 
-static void grab_and_drain(DaemonContext* ctx, int buf_id) {
-    do {
-        evdi_rect rects[16];
-        int n = 16;
-        evdi_grab_pixels(ctx->handle, rects, &n);
-    } while (evdi_request_update(ctx->handle, buf_id));
-}
-
 static void mode_changed_handler(evdi_mode mode, void* data) {
     std::cout << "Mode: " << mode.width << "x" << mode.height << " @ " << mode.refresh_rate << "Hz" << std::endl;
 
@@ -61,68 +50,30 @@ static void mode_changed_handler(evdi_mode mode, void* data) {
     evdi_register_buffer(ctx->handle, buf);
     ctx->buf_registered = true;
 
-    if (evdi_request_update(ctx->handle, BUF_ID)) {
-        grab_and_drain(ctx, BUF_ID);
+    while (evdi_request_update(ctx->handle, BUF_ID)) {
+        evdi_rect rects[16];
+        int rect_count = 16;
+        evdi_grab_pixels(ctx->handle, rects, &rect_count);
     }
-}
-
-static void update_ready_handler(int buf_id, void* data) {
-    grab_and_drain((DaemonContext*) data, buf_id);
-}
-
-static void link_providers() {
-    Display* dpy = XOpenDisplay(nullptr);
-    if (!dpy) {
-        std::cerr << "Warning: Could not open X11 display" << std::endl;
-        return;
-    }
-
-    Window root = DefaultRootWindow(dpy);
-    XRRScreenResources* res = XRRGetScreenResources(dpy, root);
-    XRRProviderResources* prov_res = XRRGetProviderResources(dpy, root);
-
-    RRProvider source = 0, sink = 0;
-    for (int i = 0; i < prov_res->nproviders; ++i) {
-        XRRProviderInfo* info = XRRGetProviderInfo(dpy, res, prov_res->providers[i]);
-        if (strstr(info->name, "evdi")) {
-            sink = prov_res->providers[i];
-        } else if (!source) {
-            source = prov_res->providers[i];
-        }
-        XRRFreeProviderInfo(info);
-
-        if (sink && source) {
-            XRRSetProviderOutputSource(dpy, sink, source);
-            break;
-        }
-    }
-
-    XRRFreeProviderResources(prov_res);
-    XRRFreeScreenResources(res);
-    XCloseDisplay(dpy);
 }
 
 int main() {
     DaemonContext ctx;
-
     if ((ctx.handle = evdi_open_attached_to_fixed(nullptr, 0)) == EVDI_INVALID_HANDLE) {
         std::cerr << "Error: Could not open EVDI device" << std::endl;
         return 1;
     }
-
     evdi_enable_cursor_events(ctx.handle, true);
     evdi_connect(ctx.handle, edid, sizeof(edid), 3840 * 2160);
-    link_providers();
 
-    struct evdi_event_context ev_ctx = {0};
-    ev_ctx.user_data = &ctx;
-    ev_ctx.mode_changed_handler = mode_changed_handler;
-    ev_ctx.update_ready_handler = update_ready_handler;
-
+    struct evdi_event_context event_ctx = {
+        .mode_changed_handler = mode_changed_handler,
+        .user_data = &ctx,
+    };
     pollfd pfd = {.fd = evdi_get_event_ready(ctx.handle), .events = POLLIN};
     for (;;) {
         if (poll(&pfd, 1, -1) > 0) {
-            evdi_handle_events(ctx.handle, &ev_ctx);
+            evdi_handle_events(ctx.handle, &event_ctx);
         }
     }
 }

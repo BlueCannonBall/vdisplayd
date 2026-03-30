@@ -30,7 +30,7 @@ cpp_compiler := $(CXX)
 c_compilation_flags := $(CFLAGS) $(dynamic_flag)
 cpp_compilation_flags := -Wall -std=c++20 -O3 $(dynamic_flag)
 link_time_flags := $(LDFLAGS)
-libraries := $(library_flag)evdi $(library_flag)X11 $(library_flag)Xrandr
+libraries := $(library_flag)evdi
 prefix := /usr/local/bin
 
 all: vdisplayd$(out_ext)

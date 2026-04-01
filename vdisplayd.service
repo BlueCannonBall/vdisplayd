@@ -1,0 +1,12 @@
+[Unit]
+Description=vdisplayd virtual display daemon
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/vdisplayd
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

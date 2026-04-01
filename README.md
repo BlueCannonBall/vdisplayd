@@ -13,11 +13,22 @@ On Arch:
 paru -S evdi-dkms
 ```
 
+Ensure the `evdi` module is loaded at boot:
+```bash
+echo "evdi" | sudo tee /etc/modules-load.d/evdi.conf
+```
+
 ## Build & Install
 
 ```bash
 make
-sudo make install   # installs to /usr/local/bin
+sudo make install             # installs to /usr/local/bin
+
+# Install as a user service (runs on login)
+mkdir -p ~/.config/systemd/user/
+cp vdisplayd.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now vdisplayd
 ```
 
 ## Usage

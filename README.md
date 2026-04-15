@@ -16,6 +16,7 @@ paru -S evdi-dkms
 Ensure the `evdi` module is loaded at boot:
 ```bash
 echo "evdi" | sudo tee /etc/modules-load.d/evdi.conf
+echo "options evdi initial_device_count=1" | sudo tee /etc/modprobe.d/evdi.conf
 ```
 
 ## Build & Install
